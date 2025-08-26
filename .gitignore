@@ -1,0 +1,10 @@
+# frontend to ignore
+frontend
+
+# backend to ignore
+backend/.env
+backend/data/backup/*
+__pycache__
+
+# app to ignore
+app
