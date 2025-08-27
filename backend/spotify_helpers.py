@@ -3,6 +3,7 @@ import base64
 import json
 from requests import post, get
 import time
+import pandas as pd
 
 ###################################################
 # USER AUTHORIZATION
@@ -121,7 +122,7 @@ def queue_song(song_id, client_id, client_secret, refresh_token):
     result = post(url+track_uri, headers=headers)
     
     if(result.status_code != 200):
-        print(f"Could not queue song\nError Code {result.status_code}\n{json.loads(result.text).get("error", {}).get("message", result.text)}")
+        print(f"Could not queue song\nError Code {result.status_code}\n{json.loads(result.text).get('error', {}).get('message', result.text)}")
 
 #############################################################################
 # PLAYLIST 
@@ -177,6 +178,116 @@ def add_to_playlist(playlist_id, client_id, client_secret, refresh_token, song_u
         return False
     
     return True
+
+def get_user_playlists(env_dict, limit, offset, url=None):
+    client_id = env_dict["client_id"]
+    client_secret = env_dict["client_secret"]
+    refresh_token = env_dict["refresh_token"]
+    user_id = get_user_id(client_id=client_id, client_secret=client_secret, refresh_token=refresh_token).split(":")[2]
+    token = refresh_user_token(client_id=client_id, client_secret=client_secret, refresh_token=refresh_token)
+    
+    while token == False:
+        print("Retrying to refresh token in 1 second")
+        time.sleep(1)
+        token = refresh_user_token(client_id=client_id, client_secret=client_secret, refresh_token=refresh_token)
+        
+    if url == None:
+        url = f"https://api.spotify.com/v1/users/{user_id}/playlists?limit={limit}&offset={offset}"
+        
+    headers = {
+        "Authorization": "Bearer "+token
+    }
+    
+    result = get(url, headers=headers)
+    json_result = json.loads(result.content)
+        
+    return json_result
+
+def get_all_user_playlists(env_dict, limit, offset):
+    print(f"Downloading User Playlist Data\n")
+    result = get_user_playlists(env_dict=env_dict, limit=limit, offset=offset)
+    data = []
+    iteration = 0;
+    total_playlists = result['total']
+    for playlist in result['items']:
+        
+        data.append({
+            'name': playlist.get('name'),
+            'id': playlist.get('id')
+        })
+        print_progress_bar(iteration=iteration, total=total_playlists)
+        iteration = iteration + 1
+    while result['next'] != None:
+        result = get_user_playlists(env_dict=env_dict, limit=limit, offset=offset, url=result['next'])
+        for playlist in result['items']:
+            data.append({
+                'name': playlist.get('name'),
+                'id': playlist.get('id')
+            })
+            print_progress_bar(iteration=iteration, total=total_playlists)
+            
+            iteration = iteration + 1
+    print("\n")
+    df = pd.DataFrame(data)
+    return df
+
+def get_songs_in_playlist(env_dict, playlist_id):
+    client_id = env_dict["client_id"]
+    client_secret = env_dict["client_secret"]
+    refresh_token = env_dict["refresh_token"]
+    token = refresh_user_token(client_id=client_id, client_secret=client_secret, refresh_token=refresh_token)
+    
+    while token == False:
+        print("Retrying to refresh token in 1 second")
+        time.sleep(1)
+        token = refresh_user_token(client_id=client_id, client_secret=client_secret, refresh_token=refresh_token)
+        
+    
+    url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
+        
+    headers = {
+        "Authorization": "Bearer "+token
+    }
+    
+    result = get(url, headers=headers)
+    json_result = json.loads(result.content)
+    total_tracks = json_result['total']
+    iteration = 0;
+    data = []
+    for item in json_result['items']:
+        iteration = iteration + 1
+        print_progress_bar(iteration=iteration, total=total_tracks)
+        data.append({
+            'Track': item.get('track').get('name'),
+            'Artist': item.get('track').get('artists')[0].get('name'),
+            'Album': item.get('track').get('album').get('name'),
+            'id': item.get('track').get('id'),
+            'added_by': item.get('added_by').get('id')
+        })
+        time.sleep(0.02)
+    
+    while json_result['next'] != None:
+        result = get(json_result['next'], headers=headers)
+        json_result = json.loads(result.content)
+        
+        for item in json_result['items']:
+            iteration = iteration + 1
+            print_progress_bar(iteration=iteration, total=total_tracks)
+            data.append({
+                'Track': item.get('track').get('name'),
+                'Artist': item.get('track').get('artists')[0].get('name'),
+                'Album': item.get('track').get('album').get('name'),
+                'id': item.get('track').get('id'),
+                'added_by': item.get('added_by').get('id')
+            })
+            time.sleep(0.02)
+        
+    
+    df = pd.DataFrame(data)
+    
+    #print(df)
+    return df
+    
     
     
 #############################################################################
@@ -230,3 +341,18 @@ def get_songs_by_artist(token, artist_id):
     json_result = json.loads(result.content)["tracks"]
     
     return json_result
+
+#############################################################################
+# HELPER FUNCTIONS
+#
+#
+#
+#
+#############################################################################
+def print_progress_bar(iteration, total, length=40):
+    percent = f"{100 * (iteration / float(total)):.1f}"
+    filled_length = int(length * iteration // total)
+    bar = '█' * filled_length + '-' * (length - filled_length)
+    print(f'\rProgress: |{bar}| {percent}% Complete', end='\r')
+    if iteration == total:
+        print()

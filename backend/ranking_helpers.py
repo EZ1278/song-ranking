@@ -43,17 +43,8 @@ def queue_matchup(topseed, bottomseed, env_dict):
     spot.queue_song(bottomseed.id.to_string(index=False), client_id=env_dict["client_id"], client_secret=env_dict["client_secret"], refresh_token=env_dict["refresh_token"])
     
 def select_matchup(currentRound, env_dict, likedSongs):
-    # Random Selection for the Starting Round
-    if int(currentRound) == 0:
-            topseed = likedSongs.sample(n=1)
-            bottomseed = likedSongs.sample(n=1)
-
-            while bottomseed.equals(topseed):
-                bottomseed = likedSongs.sample(n=1)
-        # Selection In Order for all other rounds
-    else:
-        topseed = likedSongs.iloc[0:1]
-        bottomseed = likedSongs.iloc[1:2]
+    topseed = likedSongs.iloc[0:1]
+    bottomseed = likedSongs.iloc[1:2]
         
     queue_matchup(topseed=topseed, bottomseed=bottomseed, env_dict=env_dict)
     
