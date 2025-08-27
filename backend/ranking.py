@@ -164,10 +164,3 @@ while True:
     userInput, likedSongs, matchups, roundWinners, roundLosers = read_user_input(userInput, likedSongs=likedSongs, matchups=matchups, roundWinners=roundWinners, roundLosers=roundLosers)
     if userInput == "stop":
         break
-
-
-
-
-    
-
-#print(response)
