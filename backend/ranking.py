@@ -90,14 +90,6 @@ def create_round_playlist(round, database, playlist_name):
         spot.print_progress_bar(iteration=j, total=len(database))
         j = j+1
     spot.print_progress_bar(iteration=len(database), total=len(database))
-            
-def calc_round_zero(initial_length):
-    x = 1
-    while x < initial_length:
-        x = x*2
-    x = x/2
-    
-    return 2*(initial_length-x)
 
 def determine_csv():
     csv_files = [f for f in os.listdir('./data') if f.endswith('.csv')]
