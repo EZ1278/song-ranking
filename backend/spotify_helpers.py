@@ -209,14 +209,15 @@ def get_all_user_playlists(env_dict, limit, offset):
     data = []
     iteration = 0;
     total_playlists = result['total']
+    
     for playlist in result['items']:
-        
         data.append({
             'name': playlist.get('name'),
             'id': playlist.get('id')
         })
         print_progress_bar(iteration=iteration, total=total_playlists)
         iteration = iteration + 1
+        
     while result['next'] != None:
         result = get_user_playlists(env_dict=env_dict, limit=limit, offset=offset, url=result['next'])
         for playlist in result['items']:
@@ -264,7 +265,6 @@ def get_songs_in_playlist(env_dict, playlist_id):
             'id': item.get('track').get('id'),
             'added_by': item.get('added_by').get('id')
         })
-        time.sleep(0.02)
     
     while json_result['next'] != None:
         result = get(json_result['next'], headers=headers)
@@ -280,12 +280,10 @@ def get_songs_in_playlist(env_dict, playlist_id):
                 'id': item.get('track').get('id'),
                 'added_by': item.get('added_by').get('id')
             })
-            time.sleep(0.02)
+            
         
     
     df = pd.DataFrame(data)
-    
-    #print(df)
     return df
     
     
@@ -354,5 +352,8 @@ def print_progress_bar(iteration, total, length=40):
     filled_length = int(length * iteration // total)
     bar = '█' * filled_length + '-' * (length - filled_length)
     print(f'\rProgress: |{bar}| {percent}% Complete', end='\r')
+    
     if iteration == total:
         print()
+        
+    time.sleep(0.02)

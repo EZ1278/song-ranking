@@ -27,9 +27,7 @@ def read_csv_names():
 def get_user_input(topseed, bottomseed):
     max_len = 5+max(
         topseed.Track.astype(str).str.len().max() + topseed.Artist.astype(str).str.len().max() + 2,
-        bottomseed.Track.astype(str).str.len().max() + bottomseed.Artist.astype(str).str.len().max() + 2
-        
-        
+        bottomseed.Track.astype(str).str.len().max() + bottomseed.Artist.astype(str).str.len().max() + 2 
     )
     print(f'\n{"-"*max_len}')
     print(f"1 {topseed.Track.to_string(index=False)} by: {topseed.Artist.to_string(index=False)}")
@@ -49,3 +47,6 @@ def select_matchup(currentRound, env_dict, likedSongs):
     queue_matchup(topseed=topseed, bottomseed=bottomseed, env_dict=env_dict)
     
     return topseed, bottomseed
+
+def prev_power_of_two(value):
+    return 2**(value.bit_length()-1)

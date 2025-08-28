@@ -3,9 +3,7 @@ import os
 import spotify_helpers as spot
 import ranking_helpers as rank_help
 
-import json
-
-def save_choice(topseed, bottomseed, likedSongs, matchups, roundWinners, roundLosers):
+def save_choice(likedSongs, matchups, roundWinners, roundLosers):
         likedSongs.to_csv('./data/'+currentRound+'_starting.csv', index=False)
         roundWinners.to_csv('./data/'+currentRound+'_winners.csv', index=False)
         roundLosers.to_csv('./data/'+currentRound+'_losers.csv', index=False)
@@ -45,7 +43,7 @@ def read_user_input(input, likedSongs, matchups, roundWinners, roundLosers):
         likedSongs = likedSongs.drop(topseed.index)
         likedSongs = likedSongs.drop(bottomseed.index)
         matchups = pd.concat([matchups, topseed, bottomseed], ignore_index=True)
-        save_choice(topseed=topseed, bottomseed=bottomseed, likedSongs=likedSongs, matchups=matchups, roundWinners=roundWinners, roundLosers=roundLosers)
+        save_choice(likedSongs=likedSongs, matchups=matchups, roundWinners=roundWinners, roundLosers=roundLosers)
         
     return input, likedSongs, matchups, roundWinners, roundLosers
         
@@ -56,15 +54,10 @@ def create_next_round(likedSongs, matchups, roundWinners, currentRound, nextRoun
         
     print("\nCreating files for Round "+nextRound)
     roundWinners.to_csv('./data/'+nextRound+'_starting.csv', index=False)
-    print(nextRound+'_starting.csv Complete')
     roundWinners.to_csv('./data/backup/'+nextRound+'_startingbackup.csv', index=False)
-    print(nextRound+'_startingbackup.csv Complete')
     pd.DataFrame(columns=headers).to_csv('./data/'+nextRound+'_losers.csv', index=False)
-    print(nextRound+'_losers.csv Complete')
     pd.DataFrame(columns=headers).to_csv('./data/'+nextRound+'_winners.csv', index=False)
-    print(nextRound+'_winners.csv Complete')
     pd.DataFrame(columns=headers).to_csv('./data/'+nextRound+'_matchups.csv', index=False)
-    print(nextRound+'_matchups.csv Complete')
     
     currentRound = nextRound
     nextRound = str(int(nextRound)+1)
@@ -83,23 +76,20 @@ def create_round_playlist(round, database, playlist_name):
     x = spot.create_playlist(playlist_name, client_id=env_dict["client_id"], client_secret=env_dict["client_secret"], refresh_token=env_dict["refresh_token"])
     song_uris = []
     i = 0.0
-    j = 0.0
-    print(f"Creating Round {round} Playlist")
+    j=0.0
+    print(f"Creating {playlist_name} Playlist")
     songs_remaining = len(database)
-    print(songs_remaining)
     for data in database["id"]:
-        completion = j/len(database)*100.0
         song_uris.append(f"spotify:track:{data}")
         i = i+1.0
-        #print(f"Adding Songs to Playlist: {completion:.2f}% Complete")
         if i == 100 or i == songs_remaining:
             spot.add_to_playlist(x, client_id=env_dict["client_id"], client_secret=env_dict["client_secret"], refresh_token=env_dict["refresh_token"], song_uris=song_uris)
             songs_remaining = songs_remaining-i
-            print(songs_remaining)
             i = 0.0
             song_uris = []
-        j = j+1.0
-    print(f"Creation of Round {round} Playlist Complete")
+        spot.print_progress_bar(iteration=j, total=len(database))
+        j = j+1
+    spot.print_progress_bar(iteration=len(database), total=len(database))
             
 def calc_round_zero(initial_length):
     x = 1
@@ -115,14 +105,7 @@ def determine_csv():
         return True
     return False
 
-
-# Setup for SPOTIFY API #
-env_dict = rank_help.load_env_variables()
-headers = ['Track','Artist','Album','id','added_by']
-
-# First Run
-if determine_csv() == False:
-    env_dict = rank_help.load_env_variables()
+def create_calibration_round(env_dict):
     response = spot.get_all_user_playlists(env_dict=env_dict, limit=10, offset=0)
 
     for index, row in response.iterrows():
@@ -132,11 +115,29 @@ if determine_csv() == False:
     print(f"Downloading Song Data from: {response.iloc[userInput]['name']}")
     initial_data = spot.get_songs_in_playlist(env_dict=env_dict, playlist_id=response.iloc[userInput]['id'])
     initial_data = initial_data.sort_values(by='Track')
+    # Remove tracks without a valid ID
+    initial_data = initial_data[initial_data['id'].notna() & (initial_data['id'] != '')]
+    
+    # Creating Calibration Round
+    offset_val = len(initial_data)-rank_help.prev_power_of_two(len(initial_data))
+    skip_amount = len(initial_data)-(2*offset_val)
+    skip_db = initial_data.sample(n=skip_amount).sort_values(by="Track")
+    initial_data = initial_data[~initial_data['id'].isin(skip_db['id'])]
+    
     initial_data.to_csv('./data/0_starting.csv', index=False)
-    pd.DataFrame(columns=headers).to_csv('./data/0_winners.csv', index=False)
+    skip_db.to_csv('./data/0_winners.csv', index=False)
     pd.DataFrame(columns=headers).to_csv('./data/0_losers.csv', index=False)
     pd.DataFrame(columns=headers).to_csv('./data/0_matchups.csv', index=False)
 
+
+# # Setup for SPOTIFY API #
+env_dict = rank_help.load_env_variables()
+headers = ['Track','Artist','Album','id','added_by']
+
+# First Run
+if determine_csv() == False:
+    create_calibration_round(env_dict=env_dict)
+    
 #Setup for Ranking Backend #
 currentRound = str(rank_help.read_csv_names())
 nextRound = str(rank_help.read_csv_names() + 1)
