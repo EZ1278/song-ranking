@@ -103,12 +103,16 @@ def create_calibration_round(env_dict):
     for index, row in response.iterrows():
         print(f"{index} -- {row.to_dict()['name']}")
     
+    # Get Tracks from the Playlist Selected. 
     userInput = int(input("Please select a Playlist for Ranking >>>: "))
     print(f"Downloading Song Data from: {response.iloc[userInput]['name']}")
     initial_data = spot.get_songs_in_playlist(env_dict=env_dict, playlist_id=response.iloc[userInput]['id'])
     initial_data = initial_data.sort_values(by='Track')
-    # Remove tracks without a valid ID
+    
+    # Remove tracks without a valid ID #
     initial_data = initial_data[initial_data['id'].notna() & (initial_data['id'] != '')]
+    # Remove duplicate tracks by the same artist #
+    initial_data = initial_data.drop_duplicates(subset=["Track", "Artist"], keep='first')
     
     # Creating Calibration Round
     offset_val = len(initial_data)-rank_help.prev_power_of_two(len(initial_data))
@@ -122,7 +126,7 @@ def create_calibration_round(env_dict):
     pd.DataFrame(columns=headers).to_csv('./data/0_matchups.csv', index=False)
 
 
-# # Setup for SPOTIFY API #
+# Setup for SPOTIFY API #
 env_dict = rank_help.load_env_variables()
 headers = ['Track','Artist','Album','id','added_by']
 
