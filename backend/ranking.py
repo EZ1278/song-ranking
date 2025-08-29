@@ -140,7 +140,6 @@ if determine_folders() == False:
     playlist_name = create_calibration_round(env_dict=env_dict)
 else:
     folders = [f for f in os.listdir('./data/rankings') if os.path.isdir(os.path.join('./data/rankings', f))]
-    print(folders)
     print(f"Please select a Playlist to Rank")
     print(f"{0} -- New Ranking")
     for idx, folder in enumerate(folders):
