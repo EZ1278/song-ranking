@@ -3,11 +3,11 @@ import os
 import spotify_helpers as spot
 import ranking_helpers as rank_help
 
-def save_choice(likedSongs, matchups, roundWinners, roundLosers):
-        likedSongs.to_csv('./data/'+currentRound+'_starting.csv', index=False)
-        roundWinners.to_csv('./data/'+currentRound+'_winners.csv', index=False)
-        roundLosers.to_csv('./data/'+currentRound+'_losers.csv', index=False)
-        matchups.to_csv('./data/'+currentRound+'_matchups.csv', index=False)
+def save_choice(likedSongs, matchups, roundWinners, roundLosers, playlist_name):
+    likedSongs.to_csv(f'./data/rankings/{playlist_name}/{currentRound}_starting.csv', index=False)
+    roundWinners.to_csv(f'./data/rankings/{playlist_name}/{currentRound}_winners.csv', index=False)
+    roundLosers.to_csv(f'./data/rankings/{playlist_name}/{currentRound}_losers.csv', index=False)
+    matchups.to_csv(f'./data/rankings/{playlist_name}/{currentRound}_matchups.csv', index=False)
         
 def is_integer(input_string):
     try: 
@@ -16,7 +16,7 @@ def is_integer(input_string):
     except ValueError:
         return False
 
-def read_user_input(input, likedSongs, matchups, roundWinners, roundLosers):
+def read_user_input(input, likedSongs, matchups, roundWinners, roundLosers, playlist_name):
     if input == 'stop':
         return 'stop', likedSongs, matchups, roundWinners, roundLosers
     # Check if User requested to Requeue Song
@@ -43,41 +43,44 @@ def read_user_input(input, likedSongs, matchups, roundWinners, roundLosers):
         likedSongs = likedSongs.drop(topseed.index)
         likedSongs = likedSongs.drop(bottomseed.index)
         matchups = pd.concat([matchups, topseed, bottomseed], ignore_index=True)
-        save_choice(likedSongs=likedSongs, matchups=matchups, roundWinners=roundWinners, roundLosers=roundLosers)
+        save_choice(likedSongs=likedSongs, matchups=matchups, roundWinners=roundWinners, roundLosers=roundLosers, playlist_name=playlist_name)
         
     return input, likedSongs, matchups, roundWinners, roundLosers
         
-def create_next_round(likedSongs, matchups, roundWinners, currentRound, nextRound, headers):
-    if len(likedSongs) == 1:
-        roundWinners = pd.concat([roundWinners, likedSongs.sample(n=1)], ignore_index=True)
-        matchups = pd.concat([matchups, likedSongs.sample(n=1)], ignore_index=True)
+def create_next_round(starting, round, headers, playlist_name, winners=None):
+    if not os.path.isdir(f'./data/rankings/{playlist_name}'):
+        os.makedirs(f'./data/rankings/{playlist_name}', exist_ok=True)
         
-    print("\nCreating files for Round "+nextRound)
-    roundWinners.to_csv('./data/'+nextRound+'_starting.csv', index=False)
-    roundWinners.to_csv('./data/backup/'+nextRound+'_startingbackup.csv', index=False)
-    pd.DataFrame(columns=headers).to_csv('./data/'+nextRound+'_losers.csv', index=False)
-    pd.DataFrame(columns=headers).to_csv('./data/'+nextRound+'_winners.csv', index=False)
-    pd.DataFrame(columns=headers).to_csv('./data/'+nextRound+'_matchups.csv', index=False)
+    print(f"\nCreating files for Round {round}")
+    starting.to_csv(f'./data/rankings/{playlist_name}/{round}_starting.csv', index=False)
+    starting.to_csv(f'./data/backup/{playlist_name}_{round}_startingbackup.csv', index=False)
+    pd.DataFrame(columns=headers).to_csv(f'./data/rankings/{playlist_name}/{round}_losers.csv', index=False)
+    pd.DataFrame(columns=headers).to_csv(f'./data/rankings/{playlist_name}/{round}_matchups.csv', index=False)
     
-    currentRound = nextRound
-    nextRound = str(int(nextRound)+1)
-    print("Welcome to round "+currentRound+"!\n")
-    return currentRound, nextRound
+    # Create blank winner .csv if df is not specified
+    # this is really only used for the initial db creation
+    if not isinstance(winners, pd.DataFrame):
+        pd.DataFrame(columns=headers).to_csv(f'./data/rankings/{playlist_name}/{round}_winners.csv', index=False)
+    else:
+        winners.to_csv(f'./data/rankings/{playlist_name}/{round}_winners.csv', index=False)
+    
+    print(f"Welcome to round {round}!\n")
+    return str(round), str(round+1)
 
-def read_current_round(currentRound):
-    likedSongs = pd.read_csv('./data/'+currentRound+'_starting.csv', sep=',', header=0)
-    roundWinners = pd.read_csv('./data/'+currentRound+'_winners.csv', sep=',', header=0)
-    roundLosers = pd.read_csv('./data/'+currentRound+'_losers.csv', sep=',', header=0)
-    matchups = pd.read_csv('./data/'+currentRound+'_matchups.csv', sep=',', header=0)
+def read_current_round(round, playlist_name):
+    likedSongs = pd.read_csv(f'./data/rankings/{playlist_name}/{round}_starting.csv', sep=',', header=0)
+    roundWinners = pd.read_csv(f'./data/rankings/{playlist_name}/{round}_winners.csv', sep=',', header=0)
+    roundLosers = pd.read_csv(f'./data/rankings/{playlist_name}/{round}_losers.csv', sep=',', header=0)
+    matchups = pd.read_csv(f'./data/rankings/{playlist_name}/{round}_matchups.csv', sep=',', header=0)
     
     return likedSongs, roundWinners, roundLosers, matchups
 
-def create_round_playlist(round, database, playlist_name):
-    x = spot.create_playlist(playlist_name, client_id=env_dict["client_id"], client_secret=env_dict["client_secret"], refresh_token=env_dict["refresh_token"])
+def create_round_playlist(database, name):
+    x = spot.create_playlist(name, client_id=env_dict["client_id"], client_secret=env_dict["client_secret"], refresh_token=env_dict["refresh_token"])
     song_uris = []
     i = 0.0
     j=0.0
-    print(f"Creating {playlist_name} Playlist")
+    print(f"Creating {name} Playlist")
     songs_remaining = len(database)
     for data in database["id"]:
         song_uris.append(f"spotify:track:{data}")
@@ -91,9 +94,9 @@ def create_round_playlist(round, database, playlist_name):
         j = j+1
     spot.print_progress_bar(iteration=len(database), total=len(database))
 
-def determine_csv():
-    csv_files = [f for f in os.listdir('./data') if f.endswith('.csv')]
-    if csv_files:
+def determine_folders():
+    folders = [f for f in os.listdir('./data/rankings') if os.path.isdir(os.path.join('./data/rankings', f))]
+    if folders:
         return True
     return False
 
@@ -105,11 +108,13 @@ def create_calibration_round(env_dict):
     
     # Get Tracks from the Playlist Selected. 
     userInput = int(input("Please select a Playlist for Ranking >>>: "))
-    print(f"Downloading Song Data from: {response.iloc[userInput]['name']}")
+    playlist_name = response.iloc[userInput]['name']
+    print(f"Downloading Song Data from: {playlist_name}")
     initial_data = spot.get_songs_in_playlist(env_dict=env_dict, playlist_id=response.iloc[userInput]['id'])
     initial_data = initial_data.sort_values(by='Track')
     
-    # Remove tracks without a valid ID #
+
+    # Remove tracks without a valid ID
     initial_data = initial_data[initial_data['id'].notna() & (initial_data['id'] != '')]
     # Remove duplicate tracks by the same artist #
     initial_data = initial_data.drop_duplicates(subset=["Track", "Artist"], keep='first')
@@ -120,36 +125,45 @@ def create_calibration_round(env_dict):
     skip_db = initial_data.sample(n=skip_amount).sort_values(by="Track")
     initial_data = initial_data[~initial_data['id'].isin(skip_db['id'])]
     
-    initial_data.to_csv('./data/0_starting.csv', index=False)
-    skip_db.to_csv('./data/0_winners.csv', index=False)
-    pd.DataFrame(columns=headers).to_csv('./data/0_losers.csv', index=False)
-    pd.DataFrame(columns=headers).to_csv('./data/0_matchups.csv', index=False)
-
+    create_next_round(starting=initial_data, round=0, headers=headers, winners=skip_db, playlist_name=playlist_name)
+    
+    return playlist_name
+    
 
 # Setup for SPOTIFY API #
 env_dict = rank_help.load_env_variables()
 headers = ['Track','Artist','Album','id','added_by']
+playlist_name = ''
 
 # First Run
-if determine_csv() == False:
-    create_calibration_round(env_dict=env_dict)
+if determine_folders() == False:
+    playlist_name = create_calibration_round(env_dict=env_dict)
+else:
+    folders = [f for f in os.listdir('./data/rankings') if os.path.isdir(os.path.join('./data/rankings', f))]
+    print(folders)
+    print(f"Please select a Playlist to Rank")
+    print(f"{0} -- New Ranking")
+    for idx, folder in enumerate(folders):
+        print(f"{idx+1} -- {folder}")
+    ranking_select = int(input(">>>> "))
+    if ranking_select == 0:
+        playlist_name = create_calibration_round(env_dict=env_dict)
+    else:
+        playlist_name = folders[ranking_select-1]
     
 #Setup for Ranking Backend #
 currentRound = str(rank_help.read_csv_names())
 nextRound = str(rank_help.read_csv_names() + 1)
-likedSongs = pd.read_csv('./data/'+currentRound+'_starting.csv', sep=',', header=0)
-roundWinners = pd.read_csv('./data/'+currentRound+'_winners.csv', sep=',', header=0)
-roundLosers = pd.read_csv('./data/'+currentRound+'_losers.csv', sep=',', header=0)
-matchups = pd.read_csv('./data/'+currentRound+'_matchups.csv', sep=',', header=0)
+likedSongs, roundWinners, roundLosers, matchups = read_current_round(round=currentRound, playlist_name=playlist_name)
 userInput = ""
 
 while True:
     if len(likedSongs)<=1:
-        create_round_playlist(round=currentRound, database=roundWinners, playlist_name=f"Round {currentRound} Winners")
-        create_round_playlist(round=currentRound, database=roundLosers, playlist_name=f"Round {currentRound} Losers")
-        currentRound, nextRound = create_next_round(likedSongs=likedSongs, matchups=matchups, roundWinners=roundWinners, currentRound=currentRound, nextRound=nextRound, headers=headers)
+        create_round_playlist(database=roundWinners, name=f"{playlist_name} Round {currentRound} Winners")
+        create_round_playlist(database=roundLosers, name=f"{playlist_name} Round {currentRound} Losers")
+        currentRound, nextRound = create_next_round(starting=roundWinners, round=int(nextRound), headers=headers, playlist_name=playlist_name)
         print(f"Importing Data for Round {currentRound}")
-        likedSongs, roundWinners, roundLosers, matchups = read_current_round(currentRound=currentRound)
+        likedSongs, roundWinners, roundLosers, matchups = read_current_round(round=currentRound, playlist_name=playlist_name)
         
     if userInput != 'restart':
         topseed, bottomseed = rank_help.select_matchup(currentRound=currentRound, env_dict=env_dict, likedSongs=likedSongs)
@@ -158,6 +172,6 @@ while True:
     
     userInput = rank_help.get_user_input(topseed=topseed, bottomseed=bottomseed)
     
-    userInput, likedSongs, matchups, roundWinners, roundLosers = read_user_input(userInput, likedSongs=likedSongs, matchups=matchups, roundWinners=roundWinners, roundLosers=roundLosers)
+    userInput, likedSongs, matchups, roundWinners, roundLosers = read_user_input(userInput, likedSongs=likedSongs, matchups=matchups, roundWinners=roundWinners, roundLosers=roundLosers, playlist_name=playlist_name)
     if userInput == "stop":
         break

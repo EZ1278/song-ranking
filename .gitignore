@@ -4,8 +4,8 @@ frontend
 # backend to ignore
 backend/.env
 backend/data/backup/*
-backend/data/*
 __pycache__
+backend/data/rankings/*
 
 # app to ignore
 app

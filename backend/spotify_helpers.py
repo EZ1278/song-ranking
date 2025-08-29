@@ -324,6 +324,10 @@ def get_user_id(client_id, client_secret, refresh_token):
 #
 #############################################################################
 def print_progress_bar(iteration, total, length=40):
+    # Protection on /0 error
+    if total == 0:
+        total = 1
+        
     percent = f"{100 * (iteration / float(total)):.1f}"
     filled_length = int(length * iteration // total)
     bar = '█' * filled_length + '-' * (length - filled_length)
