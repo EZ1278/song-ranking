@@ -106,12 +106,14 @@ def create_calibration_round(env_dict):
     for index, row in response.iterrows():
         print(f"{index} -- {row.to_dict()['name']}")
     
+    # Get Tracks from the Playlist Selected. 
     userInput = int(input("Please select a Playlist for Ranking >>>: "))
     playlist_name = response.iloc[userInput]['name']
     print(f"Downloading Song Data from: {playlist_name}")
     initial_data = spot.get_songs_in_playlist(env_dict=env_dict, playlist_id=response.iloc[userInput]['id'])
     initial_data = initial_data.sort_values(by='Track')
     
+
     # Remove tracks without a valid ID
     initial_data = initial_data[initial_data['id'].notna() & (initial_data['id'] != '')]
     # Remove duplicate tracks by the same artist #
@@ -128,7 +130,7 @@ def create_calibration_round(env_dict):
     return playlist_name
     
 
-# # Setup for SPOTIFY API #
+# Setup for SPOTIFY API #
 env_dict = rank_help.load_env_variables()
 headers = ['Track','Artist','Album','id','added_by']
 playlist_name = ''
